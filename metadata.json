@@ -1,0 +1,6 @@
+{
+  "name": "SOTRA Fashion",
+  "description": "SOTRA Fashion - Premium apparel, modern streetwear, oversized tees and casual clothing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

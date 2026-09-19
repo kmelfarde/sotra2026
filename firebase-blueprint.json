@@ -1,0 +1,140 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Store products catalog",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "nameAr": { "type": "string" },
+        "category": { "type": "string" },
+        "fit": { "type": "string" },
+        "fitAr": { "type": "string" },
+        "originalPrice": { "type": "number" },
+        "discountedPrice": { "type": "number" },
+        "discountPercent": { "type": "number" },
+        "badge": { "type": "string" },
+        "rating": { "type": "number" },
+        "reviewCount": { "type": "number" },
+        "description": { "type": "string" },
+        "descriptionAr": { "type": "string" },
+        "fabric": { "type": "string" },
+        "fabricAr": { "type": "string" },
+        "modelInfo": { "type": "string" },
+        "modelInfoAr": { "type": "string" },
+        "features": { "type": "array", "items": { "type": "string" } },
+        "featuresAr": { "type": "array", "items": { "type": "string" } },
+        "careInstructions": { "type": "array", "items": { "type": "string" } },
+        "colors": { "type": "array" },
+        "sizes": { "type": "array" },
+        "promoBanner": { "type": "object" },
+        "complementaryProductId": { "type": "string" },
+        "complementaryDiscountPercent": { "type": "number" },
+        "coordinatedOutfitIds": { "type": "array", "items": { "type": "string" } },
+        "displayOrder": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "category", "originalPrice", "discountedPrice"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Store category metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "nameAr": { "type": "string" },
+        "image": { "type": "string" },
+        "count": { "type": "number" },
+        "showInShopByCategory": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "nameAr"]
+    },
+    "OutfitBundle": {
+      "title": "OutfitBundle",
+      "description": "Outfit combinations and bundles with special discounts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "nameAr": { "type": "string" },
+        "tagline": { "type": "string" },
+        "taglineAr": { "type": "string" },
+        "description": { "type": "string" },
+        "descriptionAr": { "type": "string" },
+        "image": { "type": "string" },
+        "galleryImages": { "type": "array", "items": { "type": "string" } },
+        "productIds": { "type": "array", "items": { "type": "string" } },
+        "originalPrice": { "type": "number" },
+        "bundlePrice": { "type": "number" },
+        "discountPercent": { "type": "number" },
+        "badge": { "type": "string" },
+        "badgeAr": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "nameAr", "bundlePrice", "originalPrice"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Store customer orders and transactions",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string" },
+        "date": { "type": "string" },
+        "items": { "type": "array" },
+        "customer": { "type": "object" },
+        "paymentMethod": { "type": "string" },
+        "senderPhone": { "type": "string" },
+        "transactionRef": { "type": "string" },
+        "shippingFee": { "type": "number" },
+        "subtotal": { "type": "number" },
+        "discount": { "type": "number" },
+        "total": { "type": "number" },
+        "status": { "type": "string" },
+        "statusAr": { "type": "string" },
+        "stockDeducted": { "type": "boolean" },
+        "deliveredAt": { "type": "string" },
+        "cancelledAt": { "type": "string" },
+        "notes": { "type": "string" },
+        "acknowledged": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["orderId", "total", "customer", "status"]
+    },
+    "StoreSetting": {
+      "title": "StoreSetting",
+      "description": "Global store configuration documents",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "data": { "type": "object" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of all store products"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Collection of all store categories"
+    },
+    "/bundles/{bundleId}": {
+      "schema": "OutfitBundle",
+      "description": "Collection of outfit bundles"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Collection of customer orders"
+    },
+    "/storeSettings/{settingId}": {
+      "schema": "StoreSetting",
+      "description": "Settings: footer, support, wallet, governorates, notification, promo_popup"
+    }
+  }
+}

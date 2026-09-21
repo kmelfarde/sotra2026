@@ -4,7 +4,7 @@ import { Product, OutfitBundle, CurrencyCode, CategoryTab, StoreCategory, HeroBa
 import { ProductCard } from './ProductCard';
 import { CategoryCarousel } from './CategoryCarousel';
 import { ProductGrid } from './ProductGrid';
-import { Outfit3DCarousel } from './Outfit3DCarousel';
+import { OutfitSlider } from './OutfitSlider';
 
 interface HomeStoreViewProps {
   products: Product[];
@@ -342,8 +342,8 @@ export const HomeStoreView: React.FC<HomeStoreViewProps> = ({
             </div>
           </div>
 
-          {/* 3D Interactive Outfits Carousel */}
-          <Outfit3DCarousel
+          {/* Clean Horizontal Outfits Slider with Eye preview button & uniform cards */}
+          <OutfitSlider
             bundles={bundles}
             productsMap={productsMap}
             products={products}

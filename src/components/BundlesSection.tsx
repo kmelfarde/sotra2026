@@ -1,7 +1,6 @@
 import React from 'react';
 import { Layers, ArrowLeft, ArrowRight } from 'lucide-react';
-import { OutfitBundle, Product, CurrencyCode, CategoryTab } from '../types';
-import { CATEGORIES_DATA } from '../data/products';
+import { OutfitBundle, Product, CurrencyCode, CategoryTab, StoreCategory } from '../types';
 import { BundleCard } from './BundleCard';
 
 interface BundlesSectionProps {
@@ -15,6 +14,7 @@ interface BundlesSectionProps {
   isStandalonePage?: boolean;
   onBackToShop?: () => void;
   onChangeCategory?: (cat: CategoryTab) => void;
+  categories?: StoreCategory[];
 }
 
 export const BundlesSection: React.FC<BundlesSectionProps> = ({
@@ -27,7 +27,8 @@ export const BundlesSection: React.FC<BundlesSectionProps> = ({
   isArabic,
   isStandalonePage = false,
   onBackToShop,
-  onChangeCategory
+  onChangeCategory,
+  categories = []
 }) => {
   const handleOpenBundle = onSelectBundle || onOpenBundleModal || (() => {});
   return (
@@ -65,8 +66,8 @@ export const BundlesSection: React.FC<BundlesSectionProps> = ({
                 </h1>
                 <p className="text-xs sm:text-sm text-neutral-300 mt-2 max-w-2xl leading-relaxed">
                   {isArabic
-                    ? 'وفر حتى 30% عند طلب الطقم بالكامل! اختر مقاس ولون كل قطعة (تيشيرت/شورت/بنطلون) داخل الطقم بضغطة واحدة وبسعر مخفض.'
-                    : 'Save up to 30% with complete apparel & lifestyle outfit sets. Customize individual sizes and colors for each piece inside the bundle.'}
+                    ? 'أطقم ملابس وتنسيقات متناسقة مع إمكانية تحديد مقاس ولون كل قطعة داخل الطقم بخصم خاص.'
+                    : 'Curated coordinated sets with custom size and color selection for each item.'}
                 </p>
               </div>
 
@@ -79,11 +80,11 @@ export const BundlesSection: React.FC<BundlesSectionProps> = ({
       )}
 
       {/* Category Horizontal Quick Switch Bar if standalone */}
-      {isStandalonePage && onChangeCategory && (
+      {isStandalonePage && onChangeCategory && categories && categories.length > 0 && (
         <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-md border-b border-neutral-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
             <div className="flex items-center space-x-4 sm:space-x-6 overflow-x-auto py-3 no-scrollbar">
-              {CATEGORIES_DATA.map((cat) => {
+              {categories.map((cat) => {
                 const isActive = cat.id === 'sets';
                 return (
                   <button

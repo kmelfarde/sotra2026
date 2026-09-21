@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Check, 
-  ChevronDown, 
   ArrowRight, 
   ArrowLeft,
   Heart,
@@ -10,16 +9,20 @@ import {
   Minus,
   ShoppingBag,
   Layers,
-  ArrowUpRight
+  ArrowUpRight,
+  Sparkles,
+  Eye,
+  Image as ImageIcon
 } from 'lucide-react';
-import { Product, CurrencyCode, CategoryTab } from '../types';
+import { Product, CurrencyCode, CategoryTab, OutfitBundle } from '../types';
 import { ProductPromoBannerCard } from './ProductPromoBannerCard';
-import { PRODUCTS } from '../data/products';
 
 interface ProductModalProps {
   product: Product | null;
   initialColorId?: string;
   allProducts?: Product[];
+  bundles?: OutfitBundle[];
+  onSelectBundle?: (bundle: OutfitBundle) => void;
   onClose: () => void;
   onAddToCart: (product: Product, colorName: string, colorHex: string, size: string, quantity: number, image: string) => void;
   onOpenBundleModal?: (bundleId: string) => void;
@@ -35,6 +38,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   product,
   initialColorId,
   allProducts,
+  bundles = [],
+  onSelectBundle,
   onClose,
   onAddToCart,
   onOpenBundleModal,
@@ -59,16 +64,33 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     return firstInStock ? firstInStock.size : 'M';
   });
   const [quantity, setQuantity] = useState(1);
-  const [activeAccordion, setActiveAccordion] = useState<string | null>('features');
-  const [showFullFeatures, setShowFullFeatures] = useState(false);
   const [addedSuccess, setAddedSuccess] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [addedLookSuccess, setAddedLookSuccess] = useState(false);
   const [addedItemId, setAddedItemId] = useState<string | null>(null);
+  const [selectedOutfitImage, setSelectedOutfitImage] = useState<string | null>(null);
 
   const activeColor = product.colors[selectedColorIdx] || product.colors[0];
   const images = activeColor?.images || [];
   const currentImage = images[selectedImageIdx] || images[0];
+
+  // Stock and size synchronization strictly per chosen color
+  const activeColorSizesStock = activeColor?.sizesStock && activeColor.sizesStock.length > 0
+    ? activeColor.sizesStock
+    : null;
+
+  // Auto-switch to available size if current selected size is out of stock in the active color
+  useEffect(() => {
+    if (activeColorSizesStock) {
+      const currentStockItem = activeColorSizesStock.find((st) => st.size === selectedSize);
+      if (!currentStockItem || currentStockItem.stockCount <= 0) {
+        const firstAvailable = activeColorSizesStock.find((st) => st.stockCount > 0);
+        if (firstAvailable) {
+          setSelectedSize(firstAvailable.size);
+        }
+      }
+    }
+  }, [selectedColorIdx, activeColorSizesStock]);
 
   const formatPrice = (amount: number) => {
     const converted = amount * currencyRate;
@@ -81,9 +103,27 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const handleColorChange = (idx: number) => {
     setSelectedColorIdx(idx);
     setSelectedImageIdx(0);
+    const newColor = product.colors[idx];
+    if (newColor?.sizesStock && newColor.sizesStock.length > 0) {
+      const currentStock = newColor.sizesStock.find((st) => st.size === selectedSize);
+      if (!currentStock || currentStock.stockCount <= 0) {
+        const firstAvail = newColor.sizesStock.find((st) => st.stockCount > 0);
+        if (firstAvail) {
+          setSelectedSize(firstAvail.size);
+        }
+      }
+    }
   };
 
+  // Check current stock for selected color and size
+  const currentColorStockItem = activeColor?.sizesStock?.find((st) => st.size === selectedSize);
+  const currentSelectedStock = currentColorStockItem !== undefined
+    ? currentColorStockItem.stockCount
+    : (product.sizes.find((s) => s.size === selectedSize)?.stockCount ?? 0);
+  const isSelectedSizeInStock = currentSelectedStock > 0;
+
   const handleAddToCart = () => {
+    if (!isSelectedSizeInStock) return;
     onAddToCart(
       product,
       activeColor.name,
@@ -98,14 +138,32 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     }, 1500);
   };
 
-  const catalog = allProducts && allProducts.length > 0 ? allProducts : PRODUCTS;
+  // Strictly sync with database products
+  const catalog = allProducts && allProducts.length > 0 ? allProducts : [];
 
-  // 1. Explicit complementary product configured by Admin ("قطعة مكملة للإطلالة")
-  const complementaryProduct = product.complementaryProductId
-    ? catalog.find((p) => p.id === product.complementaryProductId)
-    : null;
+  // 1. Explicit or Smart complementary product ("قطعة مكملة للإطلالة / منتج مكمل")
+  const complementaryProduct = (() => {
+    if (product.complementaryProductId) {
+      const found = catalog.find((p) => p.id === product.complementaryProductId);
+      if (found) return found;
+    }
+    // If product has a promo banner targeting a specific product, use that
+    if (product.promoBanner?.targetType === 'product' && product.promoBanner?.targetId) {
+      const targetId = product.promoBanner.targetId;
+      const found = catalog.find((p) => p.id === targetId);
+      if (found) return found;
+    }
+    // Cross-match with complementary category (tops <-> bottoms)
+    if (catalog.length > 1) {
+      const targetCat = product.category === 'tops' ? 'bottoms' : product.category === 'bottoms' ? 'tops' : 'accessories';
+      const match = catalog.find((p) => p.id !== product.id && p.category === targetCat);
+      if (match) return match;
+      return catalog.find((p) => p.id !== product.id) || null;
+    }
+    return null;
+  })();
 
-  // 2. Coordinated Look Products configured by Admin or smart fallback
+  // 2. Coordinated Look Products configured by Admin in database ("تنسيقة الإطلالة المتكاملة")
   const completeTheLookProducts = (() => {
     if (product.coordinatedOutfitIds && product.coordinatedOutfitIds.length > 0) {
       const explicit = product.coordinatedOutfitIds
@@ -113,10 +171,26 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         .filter(Boolean) as Product[];
       if (explicit.length > 0) return explicit;
     }
-    return catalog.filter(
-      (p) => p.id !== product.id && (p.category !== product.category || p.badge === 'HOT')
-    ).slice(0, 3);
+    // Intelligent fallback complementary pieces for seamless styling
+    const otherProducts = catalog.filter((p) => p.id !== product.id);
+    const targetCat = product.category === 'tops' ? 'bottoms' : product.category === 'bottoms' ? 'tops' : 'accessories';
+    const primary = otherProducts.filter((p) => p.category === targetCat);
+    const secondary = otherProducts.filter((p) => p.category !== targetCat);
+    return [...primary, ...secondary].slice(0, 3);
   })();
+
+  // 3. Matching & Complementary Outfit Bundles ("الأطقم المتكاملة المكملة")
+  const matchingBundles = (() => {
+    const linked = bundles.filter(
+      (b) =>
+        (b.productIds && b.productIds.includes(product.id)) ||
+        (product.linkedBundleIds && product.linkedBundleIds.includes(b.id))
+    );
+    if (linked.length > 0) return linked;
+    return bundles.slice(0, 3);
+  })();
+
+  const outfitImages = product.outfitImages || [];
 
   const lookTotal = completeTheLookProducts.reduce(
     (sum, p) => sum + (p.discountedPrice || p.originalPrice),
@@ -156,6 +230,20 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     });
     setAddedLookSuccess(true);
     setTimeout(() => setAddedLookSuccess(false), 1600);
+  };
+
+  const handleAddSingleLookItem = (item: Product) => {
+    const itemImg = item.colors[0]?.images[0] || '';
+    onAddToCart(
+      item,
+      item.colors[0]?.name || 'Standard',
+      item.colors[0]?.hex || '#000000',
+      'M',
+      1,
+      itemImg
+    );
+    setAddedItemId(item.id);
+    setTimeout(() => setAddedItemId(null), 1600);
   };
 
   return (
@@ -287,39 +375,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 </div>
               </div>
 
-              {/* FEATURES summary line with 'Learn more' link */}
-              <div className="mb-5 bg-neutral-50 border border-neutral-200 p-3 rounded text-xs text-neutral-700">
-                <div className="leading-relaxed">
-                  <strong className="text-neutral-950 font-black uppercase tracking-wider mr-1.5 rtl:ml-1.5">
-                    {isArabic ? 'المواصفات:' : 'FEATURES •'}
-                  </strong>
-                  <span>
-                    {isArabic && product.featuresAr 
-                      ? product.featuresAr.slice(0, 2).join(' • ')
-                      : product.features.slice(0, 2).join(' • ')}
-                  </span>
-                  {showFullFeatures && (
-                    <div className="mt-2 pt-2 border-t border-neutral-200 space-y-1 text-neutral-600">
-                      {((isArabic && product.featuresAr) ? product.featuresAr : product.features).map((feat, i) => (
-                        <div key={i} className="flex items-center space-x-1.5 rtl:space-x-reverse">
-                          <span className="w-1 h-1 bg-black rounded-full" />
-                          <span>{feat}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowFullFeatures(!showFullFeatures)}
-                  className="mt-1 text-black font-bold underline text-[11px] uppercase tracking-wider cursor-pointer inline-block"
-                >
-                  {showFullFeatures 
-                    ? (isArabic ? 'عرض أقل' : 'Show less') 
-                    : (isArabic ? 'اعرف المزيد' : 'Learn more')}
-                </button>
-              </div>
-
               {/* COLOR Selection with Color Name & Swatch Previews */}
               <div className="mb-5">
                 <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider mb-2.5">
@@ -379,7 +434,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     if (currentStock <= 0) {
                       return <span className="text-red-600 font-bold text-[11px]">{isArabic ? 'غير متوفر بهذا اللون' : 'Out of Stock in this color'}</span>;
                     } else if (currentStock === 1) {
-                      return <span className="text-amber-600 font-bold text-[11px]">{isArabic ? 'متبقي قطعة واحدة فقط!' : 'Only 1 left in stock!'}</span>;
+                      return <span className="text-amber-600 font-bold text-[11px]">{isArabic ? 'آخر قطعة!' : 'Last piece!'}</span>;
                     }
                     return <span className="text-green-700 font-bold text-[11px]">{isArabic ? 'متوفر' : 'In Stock'}</span>;
                   })()}
@@ -391,15 +446,15 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     const isSelected = selectedSize === s.size;
                     const colorStockItem = activeColor?.sizesStock?.find((st) => st.size === s.size);
                     const hasColorStock = colorStockItem !== undefined;
-                    const sizeInStock = hasColorStock ? colorStockItem.stockCount > 0 : s.inStock;
                     const stockCount = hasColorStock ? colorStockItem.stockCount : s.stockCount;
+                    const sizeInStock = stockCount > 0;
 
                     return (
                       <button
                         key={s.size}
                         disabled={!sizeInStock}
                         onClick={() => setSelectedSize(s.size)}
-                        title={`${s.size} - ${stockCount === 1 ? (isArabic ? 'متبقي قطعة واحدة' : 'Only 1 left') : (sizeInStock ? (isArabic ? 'متوفر' : 'In Stock') : (isArabic ? 'غير متوفر' : 'Out of Stock'))}`}
+                        title={`${s.size} - ${stockCount === 1 ? (isArabic ? 'آخر قطعة!' : 'Last piece!') : (sizeInStock ? (isArabic ? 'متوفر' : 'In Stock') : (isArabic ? 'غير متوفر بهذا اللون' : 'Out of Stock'))}`}
                         className={`py-3 text-xs sm:text-sm font-black tracking-wider uppercase transition-all duration-150 cursor-pointer border relative ${
                           !sizeInStock
                             ? 'bg-neutral-100 text-neutral-300 border-neutral-200 cursor-not-allowed line-through'
@@ -409,6 +464,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                         }`}
                       >
                         {s.size}
+                        {stockCount === 1 && (
+                          <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-white text-[8px] px-1 rounded-full font-bold">
+                            1
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -437,13 +497,18 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
                 <button
                   onClick={handleAddToCart}
-                  className={`flex-1 h-12 px-6 text-xs sm:text-sm font-black uppercase tracking-widest transition-all duration-200 shadow-xl cursor-pointer flex items-center justify-center space-x-2 rtl:space-x-reverse ${
-                    addedSuccess
-                      ? 'bg-green-600 text-white'
-                      : 'bg-black hover:bg-neutral-800 text-white'
+                  disabled={!isSelectedSizeInStock}
+                  className={`flex-1 h-12 px-6 text-xs sm:text-sm font-black uppercase tracking-widest transition-all duration-200 shadow-xl flex items-center justify-center space-x-2 rtl:space-x-reverse ${
+                    !isSelectedSizeInStock
+                      ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed'
+                      : addedSuccess
+                      ? 'bg-green-600 text-white cursor-pointer'
+                      : 'bg-black hover:bg-neutral-800 text-white cursor-pointer'
                   }`}
                 >
-                  {addedSuccess ? (
+                  {!isSelectedSizeInStock ? (
+                    <span>{isArabic ? 'غير متوفر بهذا اللون' : 'OUT OF STOCK IN THIS COLOR'}</span>
+                  ) : addedSuccess ? (
                     <>
                       <Check className="w-4 h-4 stroke-[3]" />
                       <span>{isArabic ? 'تمت الإضافة للحقيبة بنجاح!' : 'ADDED TO BAG!'}</span>
@@ -456,9 +521,20 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 </button>
               </div>
 
-              {/* Special Promotion / Matching Outfit Banner (ولا تنسي الاعلان) */}
+              {/* Special Promotion / Matching Outfit Banner - Complementary Product Ad */}
               {product.promoBanner && (
-                <div className="mb-6">
+                <div className="mb-6 p-3 bg-neutral-50 rounded-xl border border-neutral-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-1.5 rtl:space-x-reverse">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                      <span className="text-[11px] font-black uppercase tracking-wider text-neutral-900">
+                        {isArabic ? 'منتج مكمل للإطلالة وعرض حصري' : 'Complementary Match & Special Offer'}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-neutral-500 font-bold">
+                      {isArabic ? 'إعلان مكمل' : 'Sponsored Pair'}
+                    </span>
+                  </div>
                   <ProductPromoBannerCard
                     banner={product.promoBanner}
                     onOpenBundleModal={(bId) => {
@@ -694,83 +770,179 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 </div>
               )}
 
-              {/* Accordions: Fabric, Features, Return Policy */}
-              <div className="mt-8 border-t border-neutral-200 pt-3 text-xs">
-                {/* Features Accordion */}
-                <div className="border-b border-neutral-200 py-3">
-                  <button
-                    onClick={() => setActiveAccordion(activeAccordion === 'features' ? null : 'features')}
-                    className="w-full flex items-center justify-between font-bold uppercase tracking-wider text-neutral-900 cursor-pointer"
-                  >
-                    <span>{isArabic ? 'المواصفات ومميزات التصميم' : 'Key Engineering & Features'}</span>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${activeAccordion === 'features' ? 'rotate-180' : ''}`} />
-                  </button>
-                  {activeAccordion === 'features' && (
-                    <ul className="mt-2.5 space-y-1.5 text-neutral-600 list-disc list-inside">
-                      {((isArabic && product.featuresAr) ? product.featuresAr : product.features).map((feat, i) => (
-                        <li key={i}>{feat}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                {/* Fabric Accordion */}
-                <div className="border-b border-neutral-200 py-3">
-                  <button
-                    onClick={() => setActiveAccordion(activeAccordion === 'fabric' ? null : 'fabric')}
-                    className="w-full flex items-center justify-between font-bold uppercase tracking-wider text-neutral-900 cursor-pointer"
-                  >
-                    <span>{isArabic ? 'الخامة' : 'Fabric & Material'}</span>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${activeAccordion === 'fabric' ? 'rotate-180' : ''}`} />
-                  </button>
-                  {activeAccordion === 'fabric' && (
-                    <div className="mt-2.5 space-y-2 text-neutral-600 leading-relaxed">
-                      <p><strong className="text-black">{isArabic ? 'الخامة:' : 'Fabric:'}</strong> {isArabic && product.fabricAr ? product.fabricAr : product.fabric}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Care Instructions Accordion */}
-                <div className="border-b border-neutral-200 py-3">
-                  <button
-                    onClick={() => setActiveAccordion(activeAccordion === 'care' ? null : 'care')}
-                    className="w-full flex items-center justify-between font-bold uppercase tracking-wider text-neutral-900 cursor-pointer"
-                  >
-                    <span>{isArabic ? 'تعليمات الغسيل والعناية' : 'Care Instructions'}</span>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${activeAccordion === 'care' ? 'rotate-180' : ''}`} />
-                  </button>
-                  {activeAccordion === 'care' && (
-                    <ul className="mt-2.5 space-y-1 text-neutral-600 list-disc list-inside">
-                      {product.careInstructions.map((care, i) => (
-                        <li key={i}>{care}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                {/* Guaranteed Returns & Exchanges Accordion */}
-                <div className="py-3">
-                  <button
-                    onClick={() => setActiveAccordion(activeAccordion === 'returns' ? null : 'returns')}
-                    className="w-full flex items-center justify-between font-bold uppercase tracking-wider text-neutral-900 cursor-pointer"
-                  >
-                    <span>{isArabic ? 'سياسة الاستبدال والاسترجاع' : 'Guaranteed Returns & Exchanges'}</span>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${activeAccordion === 'returns' ? 'rotate-180' : ''}`} />
-                  </button>
-                  {activeAccordion === 'returns' && (
-                    <p className="mt-2.5 text-neutral-600 leading-relaxed">
-                      {isArabic
-                        ? 'إمكانية المعاينة عند الاستلام واستبدال أو استرجاع المقاس خلال 14 يوماً بسهولة تامة وبدون أي تعقيدات.'
-                        : 'Try it on at delivery with 14-day hassle-free exchange & refund guarantee.'}
-                    </p>
-                  )}
-                </div>
-              </div>
-
+              {/* End of product details */}
             </div>
           </div>
 
+          {/* ========================================================= */}
+          {/* FULL-WIDTH COMPLEMENTARY OUTFITS & LOOKS SECTION AT BOTTOM */}
+          {/* ("أظهر الأطقم المكمله أسفل المنتج بصفحة المنتج") */}
+          {/* ========================================================= */}
+          {/* SECTION: الأطقم المكملة فقط بصفحة المنتج */}
+          {/* ========================================================= */}
+          {matchingBundles.length > 0 && (
+            <div className="border-t border-neutral-200 bg-neutral-50/60 p-4 sm:p-6 md:p-8 space-y-6">
+              {/* Section Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-neutral-200 gap-2">
+                <div>
+                  <div className="flex items-center space-x-2 rtl:space-x-reverse mb-1">
+                    <span className="w-2 h-2 rounded-full bg-black"></span>
+                    <span className="text-[11px] font-black uppercase tracking-widest text-neutral-500">
+                      {isArabic ? 'تنسيقات متناسقة' : 'MATCHED SETS'}
+                    </span>
+                  </div>
+                  <h3 className="font-heading font-black text-lg sm:text-xl uppercase tracking-wider text-neutral-950">
+                    {isArabic ? 'الأطقم المكملة لهذا المنتج' : 'COMPLEMENTARY OUTFIT SETS'}
+                  </h3>
+                </div>
+                <span className="text-xs font-bold px-3 py-1 bg-white text-neutral-800 rounded-full border border-neutral-200 self-start sm:self-auto">
+                  {matchingBundles.length} {isArabic ? 'أطقم متاحة' : 'Sets Available'}
+                </span>
+              </div>
+
+              {/* Complementary Outfit Bundles Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {matchingBundles.map((bundle) => {
+                  const savings = bundle.originalPrice - bundle.bundlePrice;
+                  const title = isArabic ? bundle.nameAr || bundle.name : bundle.name || bundle.nameAr;
+                  const tagline = isArabic ? bundle.taglineAr || bundle.tagline : bundle.tagline || bundle.taglineAr;
+                  const description = isArabic ? bundle.descriptionAr || bundle.description : bundle.description || bundle.descriptionAr;
+
+                  return (
+                    <div
+                      key={bundle.id}
+                      className="flex flex-col sm:flex-row bg-white rounded-xl border border-neutral-200 hover:border-black transition overflow-hidden shadow-xs hover:shadow-md"
+                    >
+                      {/* Bundle Image */}
+                      <div className="relative sm:w-2/5 aspect-[4/5] sm:aspect-auto bg-neutral-100 shrink-0">
+                        <img
+                          src={bundle.image}
+                          alt={title || 'Outfit'}
+                          className="w-full h-full object-cover object-top"
+                          loading="lazy"
+                        />
+                        <div className="absolute top-2.5 left-2.5 rtl:left-auto rtl:right-2.5 flex flex-col gap-1">
+                          {bundle.discountPercent > 0 && (
+                            <span className="px-2 py-1 bg-black text-white text-[10px] font-black uppercase tracking-wider rounded shadow-xs">
+                              {isArabic ? `وفر ${bundle.discountPercent}%` : `${bundle.discountPercent}% OFF`}
+                            </span>
+                          )}
+                          {bundle.badge && (
+                            <span className="px-2 py-0.5 bg-white/95 text-neutral-950 text-[9px] font-black uppercase tracking-wider rounded shadow-xs">
+                              {isArabic && bundle.badgeAr ? bundle.badgeAr : bundle.badge}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Bundle Details */}
+                      <div className="p-4 flex-1 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            {tagline ? (
+                              <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">
+                                {tagline}
+                              </span>
+                            ) : (
+                              <span />
+                            )}
+                            {savings > 0 && (
+                              <span className="text-[10px] font-black text-green-700 bg-green-50 px-1.5 py-0.5 rounded border border-green-200">
+                                {isArabic ? `وفر ${formatPrice(savings)}` : `Save ${formatPrice(savings)}`}
+                              </span>
+                            )}
+                          </div>
+
+                          <h5 className="font-heading font-black text-base text-neutral-950 mb-1.5">
+                            {title}
+                          </h5>
+
+                          {description ? (
+                            <p className="text-xs text-neutral-600 line-clamp-2 mb-3 leading-relaxed">
+                              {description}
+                            </p>
+                          ) : null}
+
+                          {/* Included pieces count */}
+                          {bundle.productIds && bundle.productIds.length > 0 && (
+                            <div className="text-[11px] text-neutral-700 font-semibold mb-3 flex items-center gap-1.5">
+                              <Layers className="w-3.5 h-3.5 text-neutral-500" />
+                              <span>
+                                {isArabic
+                                  ? `يتكون الطقم من ${bundle.productIds.length} قطع متناسقة`
+                                  : `Includes ${bundle.productIds.length} coordinated pieces`}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Pricing & CTA */}
+                        <div className="pt-3 border-t border-neutral-100 flex items-center justify-between gap-2">
+                          <div>
+                            <div className="flex items-baseline space-x-2 rtl:space-x-reverse">
+                              <span className="font-heading font-black text-base text-neutral-950">
+                                {formatPrice(bundle.bundlePrice)}
+                              </span>
+                              {bundle.originalPrice > bundle.bundlePrice && (
+                                <span className="text-xs text-neutral-400 line-through">
+                                  {formatPrice(bundle.originalPrice)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (onSelectBundle) {
+                                onSelectBundle(bundle);
+                              } else if (onOpenBundleModal) {
+                                onOpenBundleModal(bundle.id);
+                              }
+                            }}
+                            className="px-3.5 py-2 bg-black hover:bg-neutral-800 text-white text-xs font-black uppercase rounded-lg cursor-pointer transition flex items-center gap-1.5 shadow-sm"
+                          >
+                            <span>{isArabic ? 'تخصيص وطلب الطقم' : 'Shop Set'}</span>
+                            <ArrowUpRight className="w-3.5 h-3.5 rtl:rotate-270" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
         </div>
+
+        {/* Outfit Image Lightbox Modal */}
+        {selectedOutfitImage && (
+          <div
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+            onClick={() => setSelectedOutfitImage(null)}
+          >
+            <div className="relative max-w-2xl max-h-[90vh] bg-black rounded-lg overflow-hidden border border-neutral-800" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => setSelectedOutfitImage(null)}
+                className="absolute top-3 right-3 rtl:right-auto rtl:left-3 z-10 w-9 h-9 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center cursor-pointer transition border border-white/20"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <img
+                src={selectedOutfitImage}
+                alt="Enlarged Outfit"
+                className="max-h-[85vh] w-auto mx-auto object-contain"
+              />
+              <div className="p-3 bg-neutral-950 text-center border-t border-neutral-800">
+                <span className="text-xs font-bold text-neutral-300">
+                  {isArabic ? 'تنسيقة طقم سوترة المتكاملة' : 'SOTRA Coordinated Outfit Styling'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

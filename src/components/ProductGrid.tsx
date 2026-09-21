@@ -9,9 +9,8 @@ import {
   Flame,
   ShoppingBag
 } from 'lucide-react';
-import { Product, CategoryTab, CurrencyCode, OutfitBundle } from '../types';
+import { Product, CategoryTab, CurrencyCode, OutfitBundle, StoreCategory } from '../types';
 import { ProductCard } from './ProductCard';
-import { OUTFIT_BUNDLES } from '../data/bundles';
 
 interface ProductGridProps {
   products: Product[];
@@ -27,6 +26,7 @@ interface ProductGridProps {
   productsMap?: Record<string, Product>;
   onOpenBundleModal?: (bundle: OutfitBundle) => void;
   onSelectProductById?: (productId: string) => void;
+  categoriesList?: StoreCategory[];
   isArabic: boolean;
 }
 
@@ -40,9 +40,10 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   onQuickAdd,
   onOpenFilterDrawer,
   activeFilterCount = 0,
-  bundles = OUTFIT_BUNDLES,
+  bundles = [],
   productsMap = {},
   onOpenBundleModal = () => {},
+  categoriesList = [],
   isArabic
 }) => {
   // Grid column layout: '1' (single column on mobile), '2' (standard 2-col on mobile), '3' (3-col)
@@ -64,15 +65,17 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     return `$${converted}`;
   };
 
-  // Store departments category tabs
-  const categories: { id: CategoryTab; label: string; labelAr: string }[] = [
-    { id: 'all', label: 'View All', labelAr: 'عرض الكل' },
-    { id: 'tops', label: 'Tops', labelAr: 'توبات' },
-    { id: 'compressions', label: 'Compressions', labelAr: 'ملابس ضاغطة' },
-    { id: 'tanks', label: 'Tanks', labelAr: 'ملابس كت وتانك' },
-    { id: 'bottoms', label: 'Bottoms', labelAr: 'بناطيل وشورتات' },
-    { id: 'accessories', label: 'Accessories', labelAr: 'اكسسوارات' }
-  ];
+  // Store departments category tabs - fully dynamic from Firestore
+  const categories: { id: CategoryTab; label: string; labelAr: string }[] = categoriesList && categoriesList.length > 0
+    ? [
+        { id: 'all' as CategoryTab, label: 'View All', labelAr: 'عرض الكل' },
+        ...categoriesList
+          .filter(c => c.id !== 'all')
+          .map(c => ({ id: c.id as CategoryTab, label: c.name, labelAr: c.nameAr }))
+      ]
+    : [
+        { id: 'all' as CategoryTab, label: 'View All', labelAr: 'عرض الكل' }
+      ];
 
   const totalPages = Math.ceil(products.length / ITEMS_PER_PAGE) || 1;
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;

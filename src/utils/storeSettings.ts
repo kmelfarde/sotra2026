@@ -4,7 +4,12 @@ import {
   WalletSettings,
   GovernorateRate,
   BroadcastNotification,
-  SitePromoPopup
+  SitePromoPopup,
+  HeroBannerSettings,
+  TopAnnouncementSettings,
+  FreeShippingSettings,
+  PromoCode,
+  StoreNotification
 } from '../types';
 
 export const DEFAULT_FOOTER_SETTINGS: FooterSettings = {
@@ -89,13 +94,71 @@ export const DEFAULT_PROMO_POPUP: SitePromoPopup = {
   imageUrl: '',
   titleAr: 'عرض خاص لفترة محدودة',
   titleEn: 'Limited Time Special Offer',
-  subtitleAr: 'استمتع بخصم إضافي 10% عند استخدام كود SOTRA10',
-  subtitleEn: 'Enjoy 10% off with promo code SOTRA10',
+  subtitleAr: 'استمتع بخصم إضافي عند استخدام كود الخصم',
+  subtitleEn: 'Enjoy exclusive discounts with our promo code',
+  promoCode: 'SOTRA10',
   buttonTextAr: 'تسوق الآن',
   buttonTextEn: 'Shop Now',
   targetType: 'none',
   size: 'md'
 };
+
+export const DEFAULT_HERO_BANNER_SETTINGS: HeroBannerSettings = {
+  enabled: true,
+  images: [
+    'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1583473848882-f9a5bc7fd2ee?q=80&w=1600&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=1600&auto=format&fit=crop'
+  ],
+  headlineAr: 'سوترة | أزياء رجالية فاخرة',
+  headlineEn: 'SOTRA | Contemporary Menswear',
+  subtitleAr: 'تصاميم كاجوال ورياضية متقنة بأعلى معايير الجودة من خامات القطن المصري الفاخر.',
+  subtitleEn: 'Engineered oversized, streetwear, and athletic silhouettes crafted from premium combed Egyptian cotton.',
+  badgeAr: 'تشكيلة 2026 الحصرية',
+  badgeEn: 'EXCLUSIVE 2026 COLLECTION',
+  buttonTextAr: 'تسوق التشكيلة الآن',
+  buttonTextEn: 'Shop Collection',
+  buttonLink: '#products-catalog'
+};
+
+export const DEFAULT_TOP_ANNOUNCEMENT_SETTINGS: TopAnnouncementSettings = {
+  enabled: false,
+  announcements: [
+    {
+      id: 'ann-1',
+      textAr: 'استبدال واسترجاع مضمون خلال 14 يوم!',
+      textEn: 'GUARANTEED RETURNS & EXCHANGES WITHIN 14 DAYS!'
+    },
+    {
+      id: 'ann-2',
+      textAr: 'شحن سريع لكافة محافظات مصر',
+      textEn: 'FAST EXPRESS NATIONWIDE SHIPPING'
+    },
+    {
+      id: 'ann-3',
+      textAr: 'الدفع عند الاستلام وانستاباي متاح بجميع المحافظات',
+      textEn: 'CASH ON DELIVERY & INSTAPAY AVAILABLE'
+    }
+  ]
+};
+
+export const DEFAULT_FREE_SHIPPING_SETTINGS: FreeShippingSettings = {
+  threshold: 1000,
+  enabled: true
+};
+
+export const DEFAULT_PROMO_CODES: PromoCode[] = [
+  {
+    id: 'promo-sotra10',
+    code: 'SOTRA10',
+    discountPercent: 10,
+    minOrder: 0,
+    isActive: true,
+    createdAt: new Date().toISOString()
+  }
+];
+
+export const DEFAULT_STORE_NOTIFICATIONS: StoreNotification[] = [];
 
 const STORAGE_KEY_PREFIX = 'sotra_setting_';
 
@@ -156,4 +219,44 @@ export function getBroadcastNotification(): BroadcastNotification {
 
 export function getPromoPopupSettings(): SitePromoPopup {
   return getLocalSetting('site_promo_popup', DEFAULT_PROMO_POPUP);
+}
+
+export function getHeroBannerSettings(): HeroBannerSettings {
+  return getLocalSetting('hero_banner', DEFAULT_HERO_BANNER_SETTINGS);
+}
+
+export function getTopAnnouncementSettings(): TopAnnouncementSettings {
+  return getLocalSetting('top_announcement', DEFAULT_TOP_ANNOUNCEMENT_SETTINGS);
+}
+
+export function getFreeShippingSettings(): FreeShippingSettings {
+  return getLocalSetting('free_shipping', DEFAULT_FREE_SHIPPING_SETTINGS);
+}
+
+export function getPromoCodes(): PromoCode[] {
+  if (typeof window === 'undefined') return DEFAULT_PROMO_CODES;
+  try {
+    const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}promo_codes`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (err) {
+    console.warn('Error reading promo codes:', err);
+  }
+  return DEFAULT_PROMO_CODES;
+}
+
+export function getStoreNotifications(): StoreNotification[] {
+  if (typeof window === 'undefined') return DEFAULT_STORE_NOTIFICATIONS;
+  try {
+    const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}notifications_list`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (err) {
+    console.warn('Error reading notifications list:', err);
+  }
+  return DEFAULT_STORE_NOTIFICATIONS;
 }

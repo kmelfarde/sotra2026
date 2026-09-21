@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, CheckCircle2, ShieldCheck, Truck, Smartphone, ArrowRight, Headset, Copy, Check, Info, CreditCard, AlertTriangle } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { CartItem, CurrencyCode, CustomerProfile, CustomerOrder, WalletSettings, GovernorateRate } from '../types';
-import { getWalletSettings, getGovernoratesRates } from '../utils/storeSettings';
+import { CartItem, CurrencyCode, CustomerProfile, CustomerOrder, WalletSettings, GovernorateRate, FreeShippingSettings } from '../types';
+import { getWalletSettings, getGovernoratesRates, getFreeShippingSettings } from '../utils/storeSettings';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -174,7 +174,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   if (!isOpen) return null;
 
   const currentGov = governorates.find((g) => g.id === governorateId) || governorates[0];
-  const shippingCost = currentGov ? currentGov.fee : 65;
+  const freeShipping = getFreeShippingSettings();
+  const threshold = freeShipping.thresholdAmount ?? freeShipping.threshold ?? 1000;
+  const qualifiesForFreeShipping = freeShipping.enabled && subtotal >= threshold;
+  const shippingCost = qualifiesForFreeShipping ? 0 : (currentGov ? currentGov.fee : 65);
   const finalTotal = Math.max(0, subtotal - discountAmount + shippingCost);
 
   const formatPrice = (amount: number) => {

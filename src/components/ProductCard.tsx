@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingBag, Eye, Star, Check } from 'lucide-react';
+import { ShoppingBag, Eye, Check } from 'lucide-react';
 import { Product, CurrencyCode } from '../types';
 
 interface ProductCardProps {
@@ -18,8 +18,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   currencyRate,
   onSelectProduct,
   onQuickAdd,
-  isArabic,
-  rankBadge
+  isArabic
 }) => {
   const [activeColorIndex, setActiveColorIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
@@ -98,11 +97,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {/* Badges Container */}
         <div className="absolute top-2.5 inset-x-2.5 flex items-start justify-between pointer-events-none z-10">
           <div className="flex flex-col gap-1.5 items-start">
-            {rankBadge && (
-              <span className="px-2 py-0.5 bg-neutral-900 text-white font-black text-[10px] tracking-wider uppercase rounded shadow-xs">
-                {rankBadge}
-              </span>
-            )}
             {product.discountPercent && product.discountPercent > 0 && (
               <span className="px-2 py-0.5 bg-red-600 text-white font-black text-[10px] tracking-wider rounded shadow-xs">
                 -{product.discountPercent}%
@@ -118,7 +112,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {/* User directive: ONLY show stock hint if EXACTLY 1 piece remains in stock */}
           {totalStock === 1 && !isSoldOut && (
             <span className="px-2 py-0.5 bg-amber-500 text-neutral-950 font-black text-[10px] rounded shadow-xs animate-pulse">
-              {isArabic ? 'متبقي قطعة واحدة فقط!' : 'Only 1 left!'}
+              {isArabic ? 'آخر قطعة!' : 'Last piece!'}
             </span>
           )}
 
@@ -206,7 +200,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </p>
         </div>
 
-        {/* Rating & Pricing Row */}
+        {/* Pricing Row (Ratings removed per user request) */}
         <div className="mt-3 pt-2 border-t border-neutral-100 flex items-center justify-between">
           <div className="flex items-baseline gap-1.5">
             <span className="text-sm sm:text-base font-black text-neutral-950">
@@ -218,13 +212,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               </span>
             )}
           </div>
-
-          {product.rating > 0 && (
-            <div className="flex items-center gap-0.5 text-amber-500 text-xs">
-              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-              <span className="text-[10px] font-bold text-neutral-700">{product.rating.toFixed(1)}</span>
-            </div>
-          )}
         </div>
       </div>
     </div>

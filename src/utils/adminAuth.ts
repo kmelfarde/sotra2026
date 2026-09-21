@@ -205,6 +205,7 @@ export function getAllowedTabsForRole(role: AdminRole): string[] {
       return [
         'products',
         'categories',
+        'marketing',
         'look_coordination',
         'bundles',
         'orders',
@@ -218,7 +219,7 @@ export function getAllowedTabsForRole(role: AdminRole): string[] {
     case 'data_entry':
       return ['products', 'categories', 'look_coordination', 'bundles'];
     case 'management':
-      return ['orders', 'products', 'categories', 'customers'];
+      return ['orders', 'products', 'categories', 'marketing', 'customers'];
     default:
       return ['products'];
   }

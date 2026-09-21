@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Trash2, ShoppingBag, ArrowRight, Tag, Truck, CheckCircle2 } from 'lucide-react';
-import { CartItem, CurrencyCode } from '../types';
+import { CartItem, CurrencyCode, FreeShippingSettings } from '../types';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -18,6 +18,7 @@ interface CartDrawerProps {
   onApplyPromo: (code: string) => { success: boolean; message: string };
   isArabic: boolean;
   onOpenSizeGuide?: () => void;
+  freeShippingSettings?: FreeShippingSettings;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -35,7 +36,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   discountAmount,
   onApplyPromo,
   isArabic,
-  onOpenSizeGuide
+  onOpenSizeGuide,
+  freeShippingSettings
 }) => {
   const handleCheckout = onCheckout || onProceedToCheckout || (() => {});
   const [promoInput, setPromoInput] = useState('');
@@ -46,9 +48,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   const calculatedSubtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const subtotal = propSubtotal !== undefined ? propSubtotal : calculatedSubtotal;
-  const freeShippingThreshold = 1000; // in EGP
+  
+  const isFreeShippingEnabled = freeShippingSettings?.enabled !== false;
+  const freeShippingThreshold = freeShippingSettings?.threshold ?? freeShippingSettings?.thresholdAmount ?? 1000; // in EGP
   const remainingForFreeShipping = Math.max(0, freeShippingThreshold - subtotal);
-  const shippingCost = subtotal >= freeShippingThreshold || items.length === 0 ? 0 : 50;
+  const qualifiesForFreeShipping = isFreeShippingEnabled && subtotal >= freeShippingThreshold;
+  const shippingCost = qualifiesForFreeShipping || items.length === 0 ? 0 : 50;
   const finalTotal = Math.max(0, subtotal - discountAmount + shippingCost);
 
   const formatPrice = (amount: number) => {
@@ -91,33 +96,35 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         </div>
 
         {/* Free Shipping Progress Meter */}
-        <div className="bg-neutral-100 p-3 sm:p-4 border-b border-neutral-200 text-xs">
-          {remainingForFreeShipping > 0 ? (
-            <div>
-              <p className="font-semibold text-neutral-800 mb-1.5 flex items-center justify-between">
-                <span>
-                  {isArabic ? 'أضف بقيمة ' : 'Add '}
-                  <strong className="text-black">{formatPrice(remainingForFreeShipping)}</strong>
-                  {isArabic ? ' للحصول على شحن مجاني!' : ' more for FREE Delivery!'}
-                </span>
-                <Truck className="w-4 h-4 text-neutral-700" />
-              </p>
-              <div className="w-full bg-neutral-300 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-black h-full transition-all duration-500 ease-out"
-                  style={{ width: `${Math.min(100, (subtotal / freeShippingThreshold) * 100)}%` }}
-                />
+        {isFreeShippingEnabled && (
+          <div className="bg-neutral-100 p-3 sm:p-4 border-b border-neutral-200 text-xs">
+            {remainingForFreeShipping > 0 ? (
+              <div>
+                <p className="font-semibold text-neutral-800 mb-1.5 flex items-center justify-between">
+                  <span>
+                    {isArabic ? 'أضف بقيمة ' : 'Add '}
+                    <strong className="text-black">{formatPrice(remainingForFreeShipping)}</strong>
+                    {isArabic ? ' للحصول على شحن مجاني!' : ' more for FREE Delivery!'}
+                  </span>
+                  <Truck className="w-4 h-4 text-neutral-700" />
+                </p>
+                <div className="w-full bg-neutral-300 h-2 rounded-full overflow-hidden">
+                  <div
+                    className="bg-black h-full transition-all duration-500 ease-out"
+                    style={{ width: `${Math.min(100, (subtotal / freeShippingThreshold) * 100)}%` }}
+                  />
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="flex items-center space-x-2 text-green-700 font-bold">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>
-                {isArabic ? '🎉 مبروك! لقد حصلت على شحن مجاني لكافة محافظات مصر!' : "🎉 You've unlocked FREE Nationwide Delivery!"}
-              </span>
-            </div>
-          )}
-        </div>
+            ) : (
+              <div className="flex items-center space-x-2 text-green-700 font-bold">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>
+                  {isArabic ? '🎉 مبروك! لقد حصلت على شحن مجاني لكافة محافظات مصر!' : "🎉 You've unlocked FREE Nationwide Delivery!"}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Items List */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">

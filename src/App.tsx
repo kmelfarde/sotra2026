@@ -12,7 +12,12 @@ import {
   StoreCategory,
   OrderStatusType,
   BroadcastNotification,
-  SitePromoPopup
+  SitePromoPopup,
+  HeroBannerSettings,
+  TopAnnouncementSettings,
+  FreeShippingSettings,
+  PromoCode,
+  StoreNotification
 } from './types';
 import { Header } from './components/Header';
 import { HomeStoreView } from './components/HomeStoreView';
@@ -37,7 +42,16 @@ import { AdminLoginModal } from './components/AdminLoginModal';
 import { AdminDashboardModal } from './components/AdminDashboardModal';
 import { BroadcastBanner } from './components/BroadcastBanner';
 import { PromoPopupModal } from './components/PromoPopupModal';
-import { getBroadcastNotification, getPromoPopupSettings } from './utils/storeSettings';
+import {
+  getBroadcastNotification,
+  getPromoPopupSettings,
+  getHeroBannerSettings,
+  getTopAnnouncementSettings,
+  getFreeShippingSettings,
+  getPromoCodes,
+  getStoreNotifications,
+  saveLocalSetting
+} from './utils/storeSettings';
 import { orderAlarm, getAcknowledgedOrderIds, markOrdersAsAcknowledged } from './utils/audioAlarm';
 import { Check } from 'lucide-react';
 import {
@@ -45,13 +59,18 @@ import {
   subscribeToCategories,
   subscribeToBundles,
   subscribeToOrders,
+  fetchAllProducts,
+  fetchAllCategories,
+  fetchAllBundles,
   saveProductsBatchToFirestore,
   saveCategoriesBatchToFirestore,
   saveBundlesBatchToFirestore,
   createOrderInFirestore,
   updateOrderInFirestore,
   deleteOrderFromFirestore,
-  saveProductToFirestore
+  saveProductToFirestore,
+  saveSettingDoc,
+  subscribeToSettingDoc
 } from './firebase/db';
 import { initializeFirestoreDataIfNeeded, zeroOutStoreCompletely } from './firebase/seed';
 
@@ -194,6 +213,28 @@ export default function App() {
   useEffect(() => {
     // Check and seed initial data if Firestore is currently empty
     initializeFirestoreDataIfNeeded().catch(console.error);
+
+    // Immediate initial fetch for ultra-fast customer first render
+    fetchAllProducts().then((prods) => {
+      if (prods && prods.length > 0) {
+        setProducts(prods);
+      }
+    }).catch(console.error);
+
+    fetchAllCategories().then((cats) => {
+      if (cats && cats.length > 0) {
+        setCategories(cats.map((c) => ({
+          ...c,
+          showInShopByCategory: c.id !== 'all' && c.id !== 'sets'
+        })));
+      }
+    }).catch(console.error);
+
+    fetchAllBundles().then((bnds) => {
+      if (bnds && bnds.length > 0) {
+        setBundles(bnds);
+      }
+    }).catch(console.error);
 
     // Subscribe to real-time Products from Firebase
     const unsubProducts = subscribeToProducts((firestoreProducts) => {
@@ -379,18 +420,57 @@ export default function App() {
     }
   }, [cartItems]);
 
-  // Site-wide dynamic settings (Broadcast banner & Promo popup)
+  // Site-wide dynamic settings (Broadcast banner, Promo popup, Hero banner, Sections, Free shipping, etc.)
   const [notificationSettings, setNotificationSettings] = useState<BroadcastNotification>(() => getBroadcastNotification());
   const [promoSettings, setPromoSettings] = useState<SitePromoPopup>(() => getPromoPopupSettings());
+  const [heroBannerSettings, setHeroBannerSettings] = useState<HeroBannerSettings>(() => getHeroBannerSettings());
+  const [topAnnouncementSettings, setTopAnnouncementSettings] = useState<TopAnnouncementSettings>(() => getTopAnnouncementSettings());
+  const [freeShippingSettings, setFreeShippingSettings] = useState<FreeShippingSettings>(() => getFreeShippingSettings());
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>(() => getPromoCodes());
+  const [storeNotifications, setStoreNotifications] = useState<StoreNotification[]>(() => getStoreNotifications());
   const [isPromoPopupOpen, setIsPromoPopupOpen] = useState(false);
 
   useEffect(() => {
     const handleSettingsUpdate = () => {
       setNotificationSettings(getBroadcastNotification());
       setPromoSettings(getPromoPopupSettings());
+      setHeroBannerSettings(getHeroBannerSettings());
+      setTopAnnouncementSettings(getTopAnnouncementSettings());
+      setFreeShippingSettings(getFreeShippingSettings());
+      setPromoCodes(getPromoCodes());
+      setStoreNotifications(getStoreNotifications());
     };
     window.addEventListener('sotra_settings_updated', handleSettingsUpdate);
-    return () => window.removeEventListener('sotra_settings_updated', handleSettingsUpdate);
+
+    // Subscribe to real-time marketing settings in Firestore
+    const unsubHero = subscribeToSettingDoc<HeroBannerSettings>('hero_banner', (data) => {
+      if (data) setHeroBannerSettings(data);
+    });
+    const unsubTopAnn = subscribeToSettingDoc<TopAnnouncementSettings>('top_announcement', (data) => {
+      if (data) setTopAnnouncementSettings(data);
+    });
+    const unsubFreeShip = subscribeToSettingDoc<FreeShippingSettings>('free_shipping', (data) => {
+      if (data) setFreeShippingSettings(data);
+    });
+    const unsubPromo = subscribeToSettingDoc<SitePromoPopup>('site_promo_popup', (data) => {
+      if (data) setPromoSettings(data);
+    });
+    const unsubCodes = subscribeToSettingDoc<PromoCode[]>('promo_codes', (data) => {
+      if (data) setPromoCodes(data);
+    });
+    const unsubNotifs = subscribeToSettingDoc<StoreNotification[]>('notifications_list', (data) => {
+      if (data) setStoreNotifications(data);
+    });
+
+    return () => {
+      window.removeEventListener('sotra_settings_updated', handleSettingsUpdate);
+      unsubHero();
+      unsubTopAnn();
+      unsubFreeShip();
+      unsubPromo();
+      unsubCodes();
+      unsubNotifs();
+    };
   }, []);
 
   // Show promo popup once upon entrance if enabled and not dismissed with "don't show again"
@@ -955,9 +1035,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Broadcast Announcement Bar */}
-      <BroadcastBanner notification={notificationSettings} isArabic={isArabic} />
-
       {/* Primary Sticky Header */}
       <Header
         cartCount={totalCartCount}
@@ -974,6 +1051,7 @@ export default function App() {
         onToggleLanguage={() => setIsArabic(!isArabic)}
         activeNavTab={activeNavTab}
         onNavigateTab={handleNavigateTab}
+        topAnnouncement={topAnnouncementSettings}
       />
 
       {/* Main Content: Either Dedicated Category View OR Complete Home Store View */}
@@ -990,12 +1068,12 @@ export default function App() {
                   <span>{isArabic ? '← العودة للرئيسية' : '← Back to Home'}</span>
                 </button>
                 <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight">
-                  {isArabic ? 'تنسيقات وأطقم سوترة الكاملة' : 'Complete Outfit Sets & Bundles'}
+                  {isArabic ? 'قسم الإطلالات والأطقم' : 'OUTFITS & LOOKS'}
                 </h1>
                 <p className="text-xs text-neutral-400 mt-1">
                   {isArabic
-                    ? 'وفر حتى 300 ج.م عند شراء الأطقم المتناسقة كقطعة واحدة مع إمكانية تحديد مقاس ولون كل قطعة'
-                    : 'Save up to 300 LE with coordinated sets while customizing size and color for each item'}
+                    ? 'أطقم ملابس متناسقة ومختارة بعناية مع إمكانية تخصيص المقاس واللون لكل قطعة'
+                    : 'Coordinated outfits with customizable size and color for each item'}
                 </p>
               </div>
             </div>
@@ -1055,6 +1133,7 @@ export default function App() {
             onOpenBundleById={handleOpenBundleById}
             categories={categories}
             shopByCategoryTiles={shopByCategoryTiles}
+            heroBanner={heroBannerSettings}
             isArabic={isArabic}
           />
         </main>
@@ -1093,6 +1172,7 @@ export default function App() {
         currencyRate={CURRENCY_RATES[currency]}
         isArabic={isArabic}
         onOpenSizeGuide={() => setIsSizeGuideOpen(true)}
+        freeShippingSettings={freeShippingSettings}
       />
 
       {/* Fast Checkout Modal */}
@@ -1116,6 +1196,9 @@ export default function App() {
       <ProductModal
         product={activeProduct}
         initialColorId={activeColorId}
+        allProducts={products}
+        bundles={bundles}
+        onSelectBundle={(bundle) => setActiveBundle(bundle)}
         onClose={() => {
           setActiveProduct(null);
           setActiveColorId(undefined);
@@ -1187,6 +1270,19 @@ export default function App() {
           handleOpenCategory('tops');
         }}
         isArabic={isArabic}
+        notifications={storeNotifications}
+        onAddNotification={(notif) => {
+          const updated = [notif, ...storeNotifications];
+          setStoreNotifications(updated);
+          saveLocalSetting('notifications_list', updated);
+          saveSettingDoc('notifications_list', updated);
+        }}
+        onRemoveNotification={(id) => {
+          const updated = storeNotifications.filter((n) => n.id !== id);
+          setStoreNotifications(updated);
+          saveLocalSetting('notifications_list', updated);
+          saveSettingDoc('notifications_list', updated);
+        }}
       />
 
       {/* Mobile Drawer Menu */}
@@ -1260,6 +1356,44 @@ export default function App() {
         orders={customerOrders}
         onUpdateOrderStatus={handleUpdateOrderStatus}
         onUpdateOrders={setCustomerOrders}
+        marketingSettings={{
+          notifications: storeNotifications,
+          onUpdateNotifications: (notifs) => {
+            setStoreNotifications(notifs);
+            saveLocalSetting('notifications_list', notifs);
+            saveSettingDoc('notifications_list', notifs);
+          },
+          promoPopup: promoSettings,
+          onUpdatePromoPopup: (popup) => {
+            setPromoSettings(popup);
+            saveLocalSetting('site_promo_popup', popup);
+            saveSettingDoc('site_promo_popup', popup);
+          },
+          heroBanner: heroBannerSettings,
+          onUpdateHeroBanner: (banner) => {
+            setHeroBannerSettings(banner);
+            saveLocalSetting('hero_banner', banner);
+            saveSettingDoc('hero_banner', banner);
+          },
+          topAnnouncement: topAnnouncementSettings,
+          onUpdateTopAnnouncement: (ann) => {
+            setTopAnnouncementSettings(ann);
+            saveLocalSetting('top_announcement', ann);
+            saveSettingDoc('top_announcement', ann);
+          },
+          freeShipping: freeShippingSettings,
+          onUpdateFreeShipping: (shipping) => {
+            setFreeShippingSettings(shipping);
+            saveLocalSetting('free_shipping', shipping);
+            saveSettingDoc('free_shipping', shipping);
+          },
+          promoCodes: promoCodes,
+          onUpdatePromoCodes: (codes) => {
+            setPromoCodes(codes);
+            saveLocalSetting('promo_codes', codes);
+            saveSettingDoc('promo_codes', codes);
+          }
+        }}
         onResetDefaults={handleResetDefaults}
         isArabic={isArabic}
       />

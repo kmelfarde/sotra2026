@@ -1,5 +1,4 @@
 import React from 'react';
-import { CATEGORIES_DATA } from '../data/products';
 import { CategoryTab, StoreCategory } from '../types';
 
 interface CategoryCarouselProps {
@@ -12,15 +11,19 @@ interface CategoryCarouselProps {
 export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
   selectedCategory,
   onSelectCategory,
-  categories,
+  categories = [],
   isArabic
 }) => {
-  const displayCategories = categories && categories.length > 0 ? categories : CATEGORIES_DATA;
+  const displayCategories = categories;
+
+  if (!displayCategories || displayCategories.length === 0) {
+    return null;
+  }
 
   return (
     <div className="w-full bg-white py-4 sm:py-6 border-b border-neutral-100 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        {/* Horizontal Category Cards Carousel matching exact Mavin screenshot */}
+        {/* Horizontal Category Cards Carousel */}
         <div className="flex items-center space-x-3 sm:space-x-4 overflow-x-auto pb-2 pt-1 no-scrollbar scroll-smooth">
           {displayCategories.map((cat) => {
             const isSelected = selectedCategory === cat.id;
@@ -48,13 +51,10 @@ export const CategoryCarousel: React.FC<CategoryCarouselProps> = ({
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-70 group-hover:opacity-50 transition-opacity" />
                   
-                  {/* Category Label at Bottom */}
+                  {/* Category Label at Bottom - without product count as requested */}
                   <div className="absolute bottom-0 inset-x-0 p-2 sm:p-2.5 text-center">
                     <span className="block text-xs sm:text-sm font-black text-white tracking-wide uppercase drop-shadow-md truncate">
                       {isArabic ? cat.nameAr : cat.name}
-                    </span>
-                    <span className="block text-[10px] text-neutral-300 font-bold uppercase tracking-widest mt-0.5">
-                      {cat.count} {isArabic ? 'منتجات' : 'items'}
                     </span>
                   </div>
                 </div>

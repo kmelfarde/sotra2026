@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Search, Bell, User, ShoppingBag, ArrowRight, ShieldCheck, Truck, RefreshCw, X } from 'lucide-react';
-import { CurrencyCode, CategoryTab } from '../types';
+import { Menu, Search, Bell, User, ShoppingBag, ArrowRight, ShieldCheck, Truck, RefreshCw, X, Sparkles } from 'lucide-react';
+import { CurrencyCode, CategoryTab, TopAnnouncementSettings } from '../types';
 
 interface HeaderProps {
   cartCount: number;
@@ -19,6 +19,7 @@ interface HeaderProps {
   onGoHome?: () => void;
   activeNavTab?: 'home' | 'new' | 'best' | 'categories' | 'sets' | 'all';
   onNavigateTab?: (tab: any) => void;
+  topAnnouncement?: TopAnnouncementSettings;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -37,25 +38,37 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleLanguage,
   onGoHome,
   activeNavTab = 'home',
-  onNavigateTab
+  onNavigateTab,
+  topAnnouncement
 }) => {
   const handleOpenMenu = onOpenMenu || onOpenMobileMenu || (() => {});
   const [tickerIndex, setTickerIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
 
-  const announcements = [
-    { text: 'GUARANTEED RETURNS & EXCHANGES WITHIN 14 DAYS!', textAr: 'استبدال واسترجاع مضمون خلال 14 يوم!', icon: RefreshCw },
-    { text: 'FREE EXPRESS SHIPPING ON ORDERS OVER LE 1000', textAr: 'شحن سريع مجاني للطلبات أكثر من 1000 جنيه', icon: Truck },
-    { text: 'CASH ON DELIVERY & INSTAPAY AVAILABLE', textAr: 'الدفع عند الاستلام وانستاباي متاح بجميع المحافظات', icon: ShieldCheck }
-  ];
+  const dynamicMessages = (topAnnouncement?.announcements && topAnnouncement.announcements.length > 0)
+    ? topAnnouncement.announcements.map((a) => ({
+        text: a.textEn || a.textAr,
+        textAr: a.textAr || a.textEn
+      }))
+    : (topAnnouncement?.messages && topAnnouncement.messages.length > 0)
+    ? topAnnouncement.messages
+    : [
+        { text: 'GUARANTEED RETURNS & EXCHANGES WITHIN 14 DAYS!', textAr: 'استبدال واسترجاع مضمون خلال 14 يوم!' },
+        { text: 'FREE EXPRESS SHIPPING ON ORDERS OVER LE 1000', textAr: 'شحن سريع مجاني للطلبات أكثر من 1000 جنيه' },
+        { text: 'CASH ON DELIVERY & INSTAPAY AVAILABLE', textAr: 'الدفع عند الاستلام وانستاباي متاح بجميع المحافظات' }
+      ];
+
+  const isAnnouncementBarEnabled = topAnnouncement?.enabled === true;
 
   useEffect(() => {
+    if (dynamicMessages.length <= 1) return;
+    const intervalTime = (topAnnouncement?.intervalSeconds || 4) * 1000;
     const timer = setInterval(() => {
-      setTickerIndex((prev) => (prev + 1) % announcements.length);
-    }, 4000);
+      setTickerIndex((prev) => (prev + 1) % dynamicMessages.length);
+    }, intervalTime);
     return () => clearInterval(timer);
-  }, [announcements.length]);
+  }, [dynamicMessages.length, topAnnouncement?.intervalSeconds]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -90,36 +103,40 @@ export const Header: React.FC<HeaderProps> = ({
       isVisible ? 'translate-y-0' : '-translate-y-full'
     }`}>
       {/* Top Announcement Bar */}
-      <div className="bg-black text-white text-xs font-semibold py-2 px-3 tracking-wider transition-all duration-300">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="w-full flex items-center justify-center space-x-2 space-x-reverse text-center">
-            {React.createElement(announcements[tickerIndex].icon, { className: 'w-3.5 h-3.5 text-neutral-300 shrink-0 inline' })}
-            <span className="uppercase text-[11px] sm:text-xs font-bold tracking-widest transition-opacity duration-300">
-              {isArabic ? announcements[tickerIndex].textAr : announcements[tickerIndex].text}
-            </span>
-          </div>
-          
-          <div className="hidden md:flex items-center space-x-3 text-[11px] shrink-0">
-            <button 
-              onClick={onToggleLanguage} 
-              className="hover:text-neutral-300 px-1 py-0.5 rounded cursor-pointer transition font-medium"
-            >
-              {isArabic ? 'English' : 'عربي'}
-            </button>
-            <span className="text-neutral-600">|</span>
-            <select
-              value={currency}
-              onChange={(e) => onChangeCurrency(e.target.value as CurrencyCode)}
-              className="bg-transparent text-white border-none focus:outline-none cursor-pointer text-[11px] font-semibold"
-            >
-              <option value="EGP" className="text-black">EGP (LE)</option>
-              <option value="USD" className="text-black">USD ($)</option>
-              <option value="SAR" className="text-black">SAR (ر.س)</option>
-              <option value="AED" className="text-black">AED (د.إ)</option>
-            </select>
+      {isAnnouncementBarEnabled && dynamicMessages.length > 0 && (
+        <div className="bg-black text-white text-xs font-semibold py-2 px-3 tracking-wider transition-all duration-300">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="w-full flex items-center justify-center space-x-2 space-x-reverse text-center">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0 inline" />
+              <span className="uppercase text-[11px] sm:text-xs font-bold tracking-widest transition-opacity duration-300">
+                {isArabic
+                  ? (dynamicMessages[tickerIndex % dynamicMessages.length]?.textAr || dynamicMessages[tickerIndex % dynamicMessages.length]?.text)
+                  : (dynamicMessages[tickerIndex % dynamicMessages.length]?.text || dynamicMessages[tickerIndex % dynamicMessages.length]?.textAr)}
+              </span>
+            </div>
+            
+            <div className="hidden md:flex items-center space-x-3 text-[11px] shrink-0">
+              <button 
+                onClick={onToggleLanguage} 
+                className="hover:text-neutral-300 px-1 py-0.5 rounded cursor-pointer transition font-medium"
+              >
+                {isArabic ? 'English' : 'عربي'}
+              </button>
+              <span className="text-neutral-600">|</span>
+              <select
+                value={currency}
+                onChange={(e) => onChangeCurrency(e.target.value as CurrencyCode)}
+                className="bg-transparent text-white border-none focus:outline-none cursor-pointer text-[11px] font-semibold"
+              >
+                <option value="EGP" className="text-black">EGP (LE)</option>
+                <option value="USD" className="text-black">USD ($)</option>
+                <option value="SAR" className="text-black">SAR (ر.س)</option>
+                <option value="AED" className="text-black">AED (د.إ)</option>
+              </select>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Action Navbar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-15 sm:h-16 flex items-center justify-between">
@@ -147,9 +164,6 @@ export const Header: React.FC<HeaderProps> = ({
             className="relative p-1.5 text-neutral-900 hover:text-black hover:bg-neutral-100 rounded-md transition cursor-pointer"
           >
             <Bell className="w-5 h-5 stroke-[2]" />
-            <span className="absolute top-1 right-1 flex items-center justify-center w-3.5 h-3.5 sm:w-4 sm:h-4 bg-red-600 text-white text-[8px] sm:text-[9px] font-black rounded-full ring-2 ring-white">
-              3
-            </span>
           </button>
         </div>
 
@@ -200,6 +214,40 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Top Categories & Looks Navigation Bar */}
+      <nav className="border-t border-neutral-100 bg-white/95 backdrop-blur-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center justify-center space-x-4 sm:space-x-8 rtl:space-x-reverse overflow-x-auto no-scrollbar py-2 text-xs font-bold tracking-wide">
+            {navItems.map((item) => {
+              const isActive = activeNavTab === item.id;
+              const isSets = item.id === 'sets';
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onNavigateTab && onNavigateTab(item.id)}
+                  className={`relative py-1 cursor-pointer transition uppercase whitespace-nowrap flex items-center gap-1.5 ${
+                    isActive
+                      ? 'text-neutral-950 font-black border-b-2 border-black'
+                      : 'text-neutral-600 hover:text-black font-semibold'
+                  } ${isSets ? 'text-black font-black' : ''}`}
+                >
+                  {isSets && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping"></span>
+                  )}
+                  <span>{isArabic ? item.labelAr : item.label}</span>
+                  {isSets && (
+                    <span className="text-[9px] px-1.5 py-0.5 bg-black text-white rounded font-black tracking-wider">
+                      {isArabic ? 'إطلالات' : 'LOOKS'}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </nav>
 
       {/* End of Header Main Content */}
     </header>

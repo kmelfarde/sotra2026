@@ -49,7 +49,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  return errInfo;
 }
 
 // Collection references - 100% connected to Firestore
@@ -459,6 +459,13 @@ export async function clearAllDummyCatalogDataFromFirestore(): Promise<void> {
       const batch3 = writeBatch(db);
       orderSnap.forEach((d) => batch3.delete(d.ref));
       await batch3.commit();
+    }
+
+    const catSnap = await getDocs(collection(db, COLLECTIONS.CATEGORIES));
+    if (!catSnap.empty) {
+      const batch4 = writeBatch(db);
+      catSnap.forEach((d) => batch4.delete(d.ref));
+      await batch4.commit();
     }
   } catch (err) {
     console.error('Failed to clear dummy catalog data from Firestore:', err);

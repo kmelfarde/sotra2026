@@ -22,14 +22,31 @@ import {
   Users,
   Settings as SettingsIcon,
   Database,
-  Shield
+  Shield,
+  Sparkles,
+  Upload
 } from 'lucide-react';
-import { Product, StoreCategory, OutfitBundle, ProductColor, ProductSize, CustomerOrder, OrderStatusType } from '../types';
+import {
+  Product,
+  StoreCategory,
+  OutfitBundle,
+  ProductColor,
+  ProductSize,
+  CustomerOrder,
+  OrderStatusType,
+  StoreNotification,
+  SitePromoPopup,
+  HeroBannerSettings,
+  TopAnnouncementSettings,
+  FreeShippingSettings,
+  PromoCode
+} from '../types';
 import { AdminOrdersTab } from './admin/AdminOrdersTab';
 import { AdminCustomersTab } from './admin/AdminCustomersTab';
 import { AdminSettingsTab } from './admin/AdminSettingsTab';
 import { AdminBackupTab } from './admin/AdminBackupTab';
 import { AdminUsersTab } from './admin/AdminUsersTab';
+import { AdminMarketingTab } from './admin/AdminMarketingTab';
 import { getCurrentAdminUser, getAllowedTabsForRole } from '../utils/adminAuth';
 import {
   deleteProductFromFirestore,
@@ -53,6 +70,20 @@ interface AdminDashboardModalProps {
   orders?: CustomerOrder[];
   onUpdateOrderStatus?: (orderId: string, newStatus: OrderStatusType) => void;
   onUpdateOrders?: (orders: CustomerOrder[]) => void;
+  marketingSettings?: {
+    notifications: StoreNotification[];
+    onUpdateNotifications: (notifs: StoreNotification[]) => void;
+    promoPopup: SitePromoPopup;
+    onUpdatePromoPopup: (popup: SitePromoPopup) => void;
+    heroBanner: HeroBannerSettings;
+    onUpdateHeroBanner: (banner: HeroBannerSettings) => void;
+    topAnnouncement: TopAnnouncementSettings;
+    onUpdateTopAnnouncement: (announcement: TopAnnouncementSettings) => void;
+    freeShipping: FreeShippingSettings;
+    onUpdateFreeShipping: (shipping: FreeShippingSettings) => void;
+    promoCodes: PromoCode[];
+    onUpdatePromoCodes: (codes: PromoCode[]) => void;
+  };
   onResetDefaults: () => void;
   isArabic: boolean;
 }
@@ -70,6 +101,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   orders = [],
   onUpdateOrderStatus,
   onUpdateOrders,
+  marketingSettings,
   onResetDefaults,
   isArabic
 }) => {
@@ -77,7 +109,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   const allowedTabs = getAllowedTabsForRole(currentUser?.role || 'admin');
 
   const [activeTab, setActiveTab] = useState<
-    'products' | 'categories' | 'look_coordination' | 'bundles' | 'orders' | 'customers' | 'settings' | 'backup' | 'users'
+    'products' | 'categories' | 'marketing' | 'look_coordination' | 'bundles' | 'orders' | 'customers' | 'settings' | 'backup' | 'users'
   >(() => {
     const tabs = getAllowedTabsForRole(currentUser?.role || 'admin');
     return (tabs[0] as any) || 'products';
@@ -106,6 +138,10 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   const [editingBundle, setEditingBundle] = useState<OutfitBundle | null>(null);
   const [isCreatingBundle, setIsCreatingBundle] = useState(false);
   const [bundleSearchQuery, setBundleSearchQuery] = useState('');
+
+  // Outfit Images State
+  const [productOutfitUrlInput, setProductOutfitUrlInput] = useState('');
+  const [coordinationOutfitUrlInputs, setCoordinationOutfitUrlInputs] = useState<Record<string, string>>({});
 
   // Feedback banner
   const [notification, setNotification] = useState<string | null>(null);
@@ -325,6 +361,21 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             </button>
           )}
 
+          {allowedTabs.includes('marketing') && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('marketing')}
+              className={`py-3 px-4 border-b-2 flex items-center space-x-2 rtl:space-x-reverse whitespace-nowrap transition cursor-pointer ${
+                activeTab === 'marketing'
+                  ? 'border-black text-black bg-white'
+                  : 'border-transparent text-neutral-500 hover:text-black'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              <span>{isArabic ? 'الإعلانات والخصومات والتسويق' : 'Marketing & Alerts'}</span>
+            </button>
+          )}
+
           {allowedTabs.includes('look_coordination') && (
             <button
               type="button"
@@ -527,6 +578,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                         <th className="py-3 px-3">{isArabic ? 'السعر' : 'Price'}</th>
                         <th className="py-3 px-3">{isArabic ? 'الألوان' : 'Colors'}</th>
                         <th className="py-3 px-3">{isArabic ? 'المقاسات والمخزون' : 'Stock & Sizes'}</th>
+                        <th className="py-3 px-3 text-center">{isArabic ? 'الظهور بالرئيسية' : 'Homepage Display'}</th>
                         <th className="py-3 px-3 text-center">{isArabic ? 'إجراءات' : 'Actions'}</th>
                       </tr>
                     </thead>
@@ -645,6 +697,43 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                               </div>
                             </td>
 
+                            {/* Homepage Placement (وصل حديثاً / الأكثر مبيعاً) */}
+                            <td className="py-2.5 px-3 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const toggled = { ...prod, showInNewArrivals: !prod.showInNewArrivals };
+                                    handleSaveProduct(toggled);
+                                  }}
+                                  className={`px-2 py-1 rounded text-[10px] font-bold border transition cursor-pointer ${
+                                    prod.showInNewArrivals
+                                      ? 'bg-black text-white border-black shadow-xs'
+                                      : 'bg-neutral-100 text-neutral-500 border-neutral-200 hover:border-neutral-400'
+                                  }`}
+                                  title={isArabic ? 'تبديل الظهور في وصل حديثاً' : 'Toggle New Arrivals'}
+                                >
+                                  {isArabic ? 'وصل حديثاً' : 'New'}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const toggled = { ...prod, showInBestSellers: !prod.showInBestSellers };
+                                    handleSaveProduct(toggled);
+                                  }}
+                                  className={`px-2 py-1 rounded text-[10px] font-bold border transition cursor-pointer ${
+                                    prod.showInBestSellers
+                                      ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                                      : 'bg-neutral-100 text-neutral-500 border-neutral-200 hover:border-neutral-400'
+                                  }`}
+                                  title={isArabic ? 'تبديل الظهور في الأكثر مبيعاً' : 'Toggle Best Sellers'}
+                                >
+                                  {isArabic ? 'الأكثر مبيعاً' : 'Best'}
+                                </button>
+                              </div>
+                            </td>
+
                             {/* Actions */}
                             <td className="py-2.5 px-3 text-center">
                               <div className="flex items-center justify-center space-x-1 rtl:space-x-reverse">
@@ -737,6 +826,12 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                     </div>
 
                     <div className="p-3.5 space-y-3">
+                      {cat.descriptionAr && (
+                        <p className="text-[11px] text-neutral-600 line-clamp-2 leading-relaxed bg-neutral-50 p-2 rounded border border-neutral-100">
+                          {cat.descriptionAr}
+                        </p>
+                      )}
+
                       {/* Shop By Category toggle */}
                       <label className="flex items-center justify-between p-2 bg-neutral-50 rounded border border-neutral-200 cursor-pointer">
                         <span className="text-xs font-bold text-neutral-800">
@@ -780,6 +875,29 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 ))}
               </div>
             </div>
+          )}
+
+          {/* TAB: MARKETING, ALERTS & BANNERS */}
+          {activeTab === 'marketing' && marketingSettings && (
+            <AdminMarketingTab
+              notifications={marketingSettings.notifications}
+              onUpdateNotifications={marketingSettings.onUpdateNotifications}
+              promoPopup={marketingSettings.promoPopup}
+              onUpdatePromoPopup={marketingSettings.onUpdatePromoPopup}
+              heroBanner={marketingSettings.heroBanner}
+              onUpdateHeroBanner={marketingSettings.onUpdateHeroBanner}
+              topAnnouncement={marketingSettings.topAnnouncement}
+              onUpdateTopAnnouncement={marketingSettings.onUpdateTopAnnouncement}
+              freeShipping={marketingSettings.freeShipping}
+              onUpdateFreeShipping={marketingSettings.onUpdateFreeShipping}
+              promoCodes={marketingSettings.promoCodes}
+              onUpdatePromoCodes={marketingSettings.onUpdatePromoCodes}
+              isArabic={isArabic}
+              onNotify={(msg) => {
+                setNotification(msg);
+                setTimeout(() => setNotification(null), 3500);
+              }}
+            />
           )}
 
           {/* TAB 3: LOOK COORDINATION & COMPLEMENTARY PIECES */}
@@ -909,6 +1027,102 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                           </div>
                         )}
                       </div>
+
+                      {/* Linked Outfit Photos ("صور أطقم مربوطة بها") */}
+                      <div className="pt-2.5 border-t border-neutral-100">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-[11px] font-bold text-neutral-800 flex items-center gap-1">
+                            <ImageIcon className="w-3.5 h-3.5 text-neutral-600" />
+                            <span>{isArabic ? 'صور أطقم وإطلالات مربوطة بهذا المنتج:' : 'Linked Outfit / Look Photos:'}</span>
+                          </label>
+                          <span className="text-[10px] text-neutral-500">
+                            {prod.outfitImages?.length || 0} {isArabic ? 'صور' : 'photos'}
+                          </span>
+                        </div>
+
+                        {/* Thumbnails of current outfit images */}
+                        {prod.outfitImages && prod.outfitImages.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-2 p-2 bg-neutral-50 rounded border border-neutral-200">
+                            {prod.outfitImages.map((imgUrl, imgIdx) => (
+                              <div key={imgIdx} className="relative group w-14 h-16 rounded overflow-hidden border border-neutral-300 bg-white shrink-0">
+                                <img src={imgUrl} alt={`Outfit ${imgIdx + 1}`} className="w-full h-full object-cover" />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nextImages = prod.outfitImages!.filter((_, i) => i !== imgIdx);
+                                    const updated = products.map((p) => (p.id === prod.id ? { ...p, outfitImages: nextImages } : p));
+                                    onSaveProducts(updated);
+                                    saveProductToFirestore({ ...prod, outfitImages: nextImages }).catch(console.error);
+                                    showNotification(isArabic ? 'تم حذف صورة الطقم' : 'Outfit image removed');
+                                  }}
+                                  className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition cursor-pointer"
+                                  title="Remove image"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Add Outfit Image inputs: File Upload & URL */}
+                        <div className="flex flex-col sm:flex-row gap-1.5 text-xs">
+                          <div className="flex-1 flex gap-1">
+                            <input
+                              type="url"
+                              placeholder={isArabic ? 'أدخل رابط صورة الطقم (URL)...' : 'Paste outfit image URL...'}
+                              value={coordinationOutfitUrlInputs[prod.id] || ''}
+                              onChange={(e) => setCoordinationOutfitUrlInputs({ ...coordinationOutfitUrlInputs, [prod.id]: e.target.value })}
+                              className="flex-1 px-2 py-1 bg-neutral-50 border border-neutral-300 rounded text-[11px]"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const url = (coordinationOutfitUrlInputs[prod.id] || '').trim();
+                                if (!url) return;
+                                const current = prod.outfitImages || [];
+                                const nextImages = [...current, url];
+                                const updated = products.map((p) => (p.id === prod.id ? { ...p, outfitImages: nextImages } : p));
+                                onSaveProducts(updated);
+                                saveProductToFirestore({ ...prod, outfitImages: nextImages }).catch(console.error);
+                                setCoordinationOutfitUrlInputs({ ...coordinationOutfitUrlInputs, [prod.id]: '' });
+                                showNotification(isArabic ? 'تمت إضافة صورة الطقم بنجاح' : 'Outfit photo added');
+                              }}
+                              className="px-2.5 py-1 bg-black hover:bg-neutral-800 text-white text-[10px] font-bold rounded cursor-pointer"
+                            >
+                              {isArabic ? 'إضافة' : 'Add'}
+                            </button>
+                          </div>
+
+                          <label className="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 border border-neutral-300 rounded text-[10px] font-bold text-neutral-800 flex items-center justify-center gap-1 cursor-pointer transition">
+                            <Upload className="w-3 h-3" />
+                            <span>{isArabic ? 'رفع من الجهاز' : 'Upload File'}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => {
+                                    const result = reader.result as string;
+                                    if (result) {
+                                      const current = prod.outfitImages || [];
+                                      const nextImages = [...current, result];
+                                      const updated = products.map((p) => (p.id === prod.id ? { ...p, outfitImages: nextImages } : p));
+                                      onSaveProducts(updated);
+                                      saveProductToFirestore({ ...prod, outfitImages: nextImages }).catch(console.error);
+                                      showNotification(isArabic ? 'تم رفع صورة الطقم وحفظها' : 'Outfit photo uploaded');
+                                    }
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
@@ -937,18 +1151,16 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                       id: `bundle-${Date.now().toString(36)}`,
                       name: '',
                       nameAr: '',
-                      tagline: 'Complete coordinated outfit set for modern style.',
-                      taglineAr: 'طقم متناسق أنيق يجمع بين الراحة والأناقة اليومية.',
-                      description: 'Definitive streetwear apparel set crafted with premium Egyptian cotton.',
-                      descriptionAr: 'طقم ملابس فاخر متكامل بخامات قطنية ممتازة وخصم خاص.',
-                      image: 'https://images.unsplash.com/photo-1583473848882-f9a5bc7fd2ee?q=80&w=900&auto=format&fit=crop',
-                      galleryImages: [
-                        'https://images.unsplash.com/photo-1583473848882-f9a5bc7fd2ee?q=80&w=900&auto=format&fit=crop'
-                      ],
+                      tagline: '',
+                      taglineAr: '',
+                      description: '',
+                      descriptionAr: '',
+                      image: '',
+                      galleryImages: [],
                       productIds: products.slice(0, 2).map((p) => p.id),
-                      originalPrice: 1500,
-                      bundlePrice: 1199,
-                      discountPercent: 20,
+                      originalPrice: 0,
+                      bundlePrice: 0,
+                      discountPercent: 0,
                       badge: 'BEST VALUE',
                       badgeAr: 'الأكثر توفيراً'
                     });
@@ -1545,6 +1757,191 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   </div>
                 </div>
 
+                {/* Section Placement & Visibility: وصل حديثاً أو الأكثر مبيعاً */}
+                <div className="p-3.5 bg-neutral-50 rounded border border-neutral-200 space-y-2.5">
+                  <label className="block text-[11px] font-bold uppercase text-neutral-800">
+                    {isArabic ? 'مكان ظهور المنتج في الصفحة الرئيسية (إبراز المنتج):' : 'Homepage Feature Placements:'}
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <label className="flex items-center space-x-2.5 rtl:space-x-reverse p-3 bg-white rounded border border-neutral-300 cursor-pointer hover:border-black transition">
+                      <input
+                        type="checkbox"
+                        checked={editingProduct.showInNewArrivals ?? editingProduct.isNewArrival ?? false}
+                        onChange={(e) => setEditingProduct({
+                          ...editingProduct,
+                          showInNewArrivals: e.target.checked,
+                          isNewArrival: e.target.checked
+                        })}
+                        className="w-4 h-4 accent-black cursor-pointer shrink-0"
+                      />
+                      <div className="flex flex-col">
+                        <span className="font-black text-neutral-900">
+                          {isArabic ? 'إبراز في قسم "وصل حديثاً"' : 'Feature in "New Arrivals"'}
+                        </span>
+                        <span className="text-[10px] text-neutral-500">
+                          {isArabic ? 'يظهر بالواجهة تحت قسم وصل حديثاً' : 'Display under New Arrivals section'}
+                        </span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center space-x-2.5 rtl:space-x-reverse p-3 bg-white rounded border border-neutral-300 cursor-pointer hover:border-black transition">
+                      <input
+                        type="checkbox"
+                        checked={editingProduct.showInBestSellers ?? false}
+                        onChange={(e) => setEditingProduct({
+                          ...editingProduct,
+                          showInBestSellers: e.target.checked
+                        })}
+                        className="w-4 h-4 accent-black cursor-pointer shrink-0"
+                      />
+                      <div className="flex flex-col">
+                        <span className="font-black text-neutral-900">
+                          {isArabic ? 'إبراز في قسم "الأكثر مبيعاً"' : 'Feature in "Best Sellers"'}
+                        </span>
+                        <span className="text-[10px] text-neutral-500">
+                          {isArabic ? 'يظهر بالواجهة في قسم الأكثر مبيعاً' : 'Display under Best Sellers section'}
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* صور أطقم مربوطة بهذا المنتج وإطلالات مكملة ("و ضيف مكان لصور أطقم مربوطه بها ومن لوحة التحكم تضاف و تتغير") */}
+                <div className="p-3.5 bg-neutral-50 rounded border border-neutral-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                      <ImageIcon className="w-4 h-4 text-neutral-800" />
+                      <span className="text-[11px] font-black uppercase text-neutral-900">
+                        {isArabic ? 'صور أطقم وإطلالات مربوطة بهذا المنتج (Outfit Photos):' : 'Linked Outfit & Look Photos:'}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-neutral-500">
+                      {editingProduct.outfitImages?.length || 0} {isArabic ? 'صور أطقم' : 'outfit photos'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-neutral-500">
+                    {isArabic
+                      ? 'أضف صور إطلالات كاملة أو أطقم متناسقة يرتدي فيها الموديل هذا المنتج. ستظهر هذه الصور والأطقم المكملة أسفل هذا المنتج في صفحة المنتج.'
+                      : 'Add outfit and look photos featuring this product. These will appear in the Complementary Outfits section at the bottom of this product page.'}
+                  </p>
+
+                  {/* Existing Outfit Images Thumbnails */}
+                  {editingProduct.outfitImages && editingProduct.outfitImages.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2.5 p-2.5 bg-white rounded border border-neutral-300">
+                      {editingProduct.outfitImages.map((outfitImg, idx) => (
+                        <div key={idx} className="relative group aspect-[3/4] bg-neutral-100 rounded overflow-hidden border border-neutral-200 shadow-xs">
+                          <img src={outfitImg} alt={`Outfit ${idx + 1}`} className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = editingProduct.outfitImages!.filter((_, i) => i !== idx);
+                              setEditingProduct({ ...editingProduct, outfitImages: updated });
+                            }}
+                            className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition cursor-pointer"
+                            title={isArabic ? 'حذف صورة الطقم' : 'Delete photo'}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-400" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add Outfit Image Tools */}
+                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                    <div className="flex-1 flex gap-1.5">
+                      <input
+                        type="url"
+                        placeholder={isArabic ? 'أدخل رابط صورة طقم (URL)...' : 'Paste outfit photo URL...'}
+                        value={productOutfitUrlInput}
+                        onChange={(e) => setProductOutfitUrlInput(e.target.value)}
+                        className="flex-1 px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-xs font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (productOutfitUrlInput.trim()) {
+                            const current = editingProduct.outfitImages || [];
+                            setEditingProduct({
+                              ...editingProduct,
+                              outfitImages: [...current, productOutfitUrlInput.trim()]
+                            });
+                            setProductOutfitUrlInput('');
+                            showNotification(isArabic ? 'تمت إضافة صورة الطقم' : 'Outfit photo added');
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-black hover:bg-neutral-800 text-white text-xs font-bold rounded cursor-pointer shrink-0"
+                      >
+                        {isArabic ? 'إضافة بالرابط' : 'Add URL'}
+                      </button>
+                    </div>
+
+                    <label className="px-3 py-1.5 bg-white hover:bg-neutral-100 border border-neutral-300 rounded text-xs font-bold text-neutral-800 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0 transition">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{isArabic ? 'رفع صورة من الجهاز' : 'Upload from Device'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              const result = reader.result as string;
+                              if (result) {
+                                const current = editingProduct.outfitImages || [];
+                                setEditingProduct({
+                                  ...editingProduct,
+                                  outfitImages: [...current, result]
+                                });
+                                showNotification(isArabic ? 'تم رفع صورة الطقم بنجاح' : 'Outfit photo uploaded');
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+
+                  {/* Link to Existing Bundles */}
+                  {bundles.length > 0 && (
+                    <div className="pt-2 border-t border-neutral-200">
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1.5">
+                        {isArabic ? 'ربط هذا المنتج بأطقم وتنسيقات سوترة الكاملة:' : 'Link with SOTRA Outfit Bundles:'}
+                      </label>
+                      <div className="space-y-1.5 max-h-32 overflow-y-auto bg-white p-2 rounded border border-neutral-300 text-xs">
+                        {bundles.map((b) => {
+                          const isLinked = (editingProduct.linkedBundleIds || []).includes(b.id) || b.productIds.includes(editingProduct.id);
+                          return (
+                            <label key={b.id} className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer hover:bg-neutral-50 p-1 rounded">
+                              <input
+                                type="checkbox"
+                                checked={isLinked}
+                                onChange={(e) => {
+                                  const current = editingProduct.linkedBundleIds || [];
+                                  const next = e.target.checked
+                                    ? [...current, b.id]
+                                    : current.filter((id) => id !== b.id);
+                                  setEditingProduct({ ...editingProduct, linkedBundleIds: next });
+                                }}
+                                className="w-3.5 h-3.5 accent-black cursor-pointer"
+                              />
+                              <span className="font-semibold text-neutral-800">
+                                {isArabic ? b.nameAr || b.name : b.name}
+                              </span>
+                              <span className="text-[10px] text-neutral-500">
+                                ({b.bundlePrice} LE • {b.discountPercent}% OFF)
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Submit button */}
                 <div className="pt-2 flex justify-end space-x-2 rtl:space-x-reverse">
                   <button
@@ -1645,6 +2042,58 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                     onChange={(e) => setEditingCategory({ ...editingCategory, image: e.target.value })}
                     className="w-full px-2.5 py-1.5 bg-neutral-50 border border-neutral-300 rounded font-mono"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                    {isArabic ? 'رابط صورة غلاف القسم العلوية (Cover Banner URL) - اختياري' : 'Category Top Cover Banner (Optional)'}
+                  </label>
+                  <input
+                    type="url"
+                    value={editingCategory.coverImage || ''}
+                    placeholder="https://..."
+                    onChange={(e) => setEditingCategory({ ...editingCategory, coverImage: e.target.value })}
+                    className="w-full px-2.5 py-1.5 bg-neutral-50 border border-neutral-300 rounded font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                    {isArabic ? 'وصف القسم (عربي) - مثل: حقائب سفر وإكسسوارات وجوارب قطنية أساسية...' : 'Category Description (Arabic)'}
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editingCategory.descriptionAr || ''}
+                    placeholder={isArabic ? 'حقائب سفر وإكسسوارات وجوارب قطنية أساسية مصممة بأعلى معايير الجودة لتناسب أناقتك اليومية...' : ''}
+                    onChange={(e) => setEditingCategory({ ...editingCategory, descriptionAr: e.target.value })}
+                    className="w-full px-2.5 py-1.5 bg-neutral-50 border border-neutral-300 rounded text-xs leading-relaxed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                    {isArabic ? 'وصف القسم (إنجليزي) - اختياري' : 'Category Description (English) - Optional'}
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editingCategory.description || ''}
+                    onChange={(e) => setEditingCategory({ ...editingCategory, description: e.target.value })}
+                    className="w-full px-2.5 py-1.5 bg-neutral-50 border border-neutral-300 rounded text-xs leading-relaxed"
+                  />
+                </div>
+
+                <div className="pt-1">
+                  <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editingCategory.showInShopByCategory ?? true}
+                      onChange={(e) => setEditingCategory({ ...editingCategory, showInShopByCategory: e.target.checked })}
+                      className="w-4 h-4 accent-black cursor-pointer"
+                    />
+                    <span className="text-xs font-bold text-neutral-800">
+                      {isArabic ? 'إبراز هذا القسم في "تسوق حسب الأقسام" بالصفحة الرئيسية' : 'Highlight in "Shop by Category" on Home'}
+                    </span>
+                  </label>
                 </div>
 
                 <div className="pt-2 flex justify-end space-x-2 rtl:space-x-reverse">

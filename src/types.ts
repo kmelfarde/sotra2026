@@ -70,19 +70,29 @@ export interface Product {
   complementaryDiscountPercent?: number;
   // Integrated outfit coordinates ("تنسيقة الإطلالة المتكاملة")
   coordinatedOutfitIds?: string[];
+  // Linked outfit photos ("صور أطقم مربوطة بالمنتج")
+  outfitImages?: string[];
+  // Linked outfit bundle IDs
+  linkedBundleIds?: string[];
   // Display ordering priority
   displayOrder?: number;
   inStock?: boolean;
   isNewArrival?: boolean;
+  showInNewArrivals?: boolean;
+  showInBestSellers?: boolean;
 }
 
 export interface StoreCategory {
   id: string;
   name: string;
   nameAr: string;
-  image: string;
+  image: string; // صورة القسم الخارجية (Shop by category / cards)
+  coverImage?: string; // صورة غلاف القسم (Category page top banner)
+  description?: string;
+  descriptionAr?: string; // e.g. حقائب سفر وإكسسوارات وجوارب قطنية أساسية مصممة بأعلى معايير الجودة لتناسب أناقتك اليومية.
   count?: number;
   showInShopByCategory?: boolean;
+  displayOrder?: number;
 }
 
 export interface CartItem {
@@ -265,6 +275,73 @@ export interface BroadcastNotification {
   createdAt?: string;
 }
 
+export interface StoreNotification {
+  id: string;
+  titleAr: string;
+  titleEn?: string;
+  descAr: string;
+  descEn?: string;
+  code?: string;
+  type: 'discount' | 'drop' | 'announcement';
+  actionType: 'copy' | 'shop' | 'none';
+  createdAt?: string;
+}
+
+export interface PromoCode {
+  id: string;
+  code: string;
+  discountPercent?: number;
+  discountFixed?: number;
+  minOrder?: number;
+  isActive: boolean;
+  createdAt?: string;
+}
+
+export interface HeroBannerSettings {
+  enabled: boolean;
+  images: string[];
+  headlineAr?: string;
+  headlineEn?: string;
+  subtitleAr?: string;
+  subtitleEn?: string;
+  badgeAr?: string;
+  badgeEn?: string;
+  buttonTextAr?: string;
+  buttonTextEn?: string;
+  buttonLink?: string;
+  rotationSeconds?: number;
+  showDock?: boolean;
+  slides?: Array<{ id: string; imageUrl: string; titleAr?: string; titleEn?: string }>;
+  showNewArrivals?: boolean;
+  showBestSellers?: boolean;
+  showShopByCategory?: boolean;
+  newArrivalsTitleAr?: string;
+  newArrivalsTitleEn?: string;
+  bestSellersTitleAr?: string;
+  bestSellersTitleEn?: string;
+  shopByCategoryTitleAr?: string;
+  shopByCategoryTitleEn?: string;
+}
+
+export interface TopAnnouncementItem {
+  id: string;
+  textAr: string;
+  textEn: string;
+}
+
+export interface TopAnnouncementSettings {
+  enabled: boolean;
+  announcements: TopAnnouncementItem[];
+  intervalSeconds?: number;
+  messages?: Array<{ text: string; textAr: string }>;
+}
+
+export interface FreeShippingSettings {
+  threshold: number; // e.g. 1000 EGP
+  enabled: boolean;
+  thresholdAmount?: number;
+}
+
 export interface SitePromoPopup {
   enabled: boolean;
   imageUrl: string;
@@ -272,9 +349,10 @@ export interface SitePromoPopup {
   titleEn?: string;
   subtitleAr?: string;
   subtitleEn?: string;
+  promoCode?: string;
   buttonTextAr?: string;
   buttonTextEn?: string;
-  targetType: 'none' | 'product' | 'category';
+  targetType: 'none' | 'product' | 'category' | 'link';
   targetId?: string; // productId or categoryId
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'custom';
   customWidth?: number;
